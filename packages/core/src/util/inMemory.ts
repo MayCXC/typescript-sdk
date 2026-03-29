@@ -14,7 +14,7 @@ export class InMemoryTransport implements Transport {
     private _otherTransport?: InMemoryTransport;
     private _messageQueue: QueuedMessage[] = [];
 
-    onclose?: () => void;
+    onclose?: () => void | Promise<void>;
     onerror?: (error: Error) => void;
     onmessage?: (message: JSONRPCMessage, extra?: { authInfo?: AuthInfo }) => void;
     sessionId?: string;
@@ -42,7 +42,7 @@ export class InMemoryTransport implements Transport {
         const other = this._otherTransport;
         this._otherTransport = undefined;
         await other?.close();
-        this.onclose?.();
+        await this.onclose?.();
     }
 
     /**

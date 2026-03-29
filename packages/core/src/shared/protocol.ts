@@ -420,7 +420,7 @@ export abstract class Protocol<ContextT extends BaseContext> {
      *
      * This is invoked when {@linkcode Protocol.close | close()} is called as well.
      */
-    onclose?: () => void;
+    onclose?: () => void | Promise<void>;
 
     /**
      * Callback for when an error occurs.
@@ -692,9 +692,9 @@ export abstract class Protocol<ContextT extends BaseContext> {
     async connect(transport: Transport): Promise<void> {
         this._transport = transport;
         const _onclose = this.transport?.onclose;
-        this._transport.onclose = () => {
-            _onclose?.();
-            this._onclose();
+        this._transport.onclose = async () => {
+            if (_onclose) await _onclose();
+            await this._onclose();
         };
 
         const _onerror = this.transport?.onerror;
@@ -723,17 +723,17 @@ export abstract class Protocol<ContextT extends BaseContext> {
         await this._transport.start();
     }
 
-    private _onclose(): void {
+    private async _onclose(): Promise<void> {
         const responseHandlers = this._responseHandlers;
         this._responseHandlers = new Map();
         this._progressHandlers.clear();
         this._taskProgressTokens.clear();
         this._pendingDebouncedNotifications.clear();
+        this._transport = undefined;
+
+        await this.onclose?.();
 
         const error = new SdkError(SdkErrorCode.ConnectionClosed, 'Connection closed');
-
-        this._transport = undefined;
-        this.onclose?.();
 
         for (const handler of responseHandlers.values()) {
             handler(error);
